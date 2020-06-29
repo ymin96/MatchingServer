@@ -1,0 +1,8 @@
+# Project exclude paths
+/out/
+.idea/.gitignore
+.idea/libraries/
+.idea/misc.xml
+.idea/modules.xml
+MatchingServer.iml
+src/
