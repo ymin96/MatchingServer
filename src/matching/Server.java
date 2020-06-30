@@ -62,17 +62,26 @@ public class Server {
                        iterator.remove();
                    }
 
-                   while(connections.size() > 3){
-                        List<Client> subList = connections.subList(0,4);
+                   // 대기중인 인원이 2명 이상이라면 매칭시켜준다.
+                   while(connections.size() > 1){
+                        // 원본 리스트에서 2개씩 부분 리스트를 만들어서 매칭
+                        List<Client> subList = connections.subList(0,2);
                         String message = jsonAction.connectAddress();
-
-                        for(int i=0 ;i< 4; i++){
-                            subList.get(i).sendData = message;
-                            SelectionKey key = subList.get(i).socketChannel.keyFor(selector);
+                        Iterator<Client> subListIterator = subList.iterator();
+                        while(subListIterator.hasNext()){
+                            Client client = subListIterator.next();
+                            client.sendData = message;
+                            SelectionKey key = client.socketChannel.keyFor(selector);
                             key.interestOps(SelectionKey.OP_WRITE); // 작업 유형 변경
-                            connections.remove(0);
+                        }
+                        // 매칭시켜준뒤 대기 리스트에서 삭제
+                        Iterator<Client> clientIterator = connections.iterator();
+                        for(int i=0 ;i< 2; i++){
+                            clientIterator.next();
+                            clientIterator.remove();
                         }
                         System.out.println("그룹 매칭 성공");
+                        selector.wakeup();
                    }
 
                } catch (IOException e) {
