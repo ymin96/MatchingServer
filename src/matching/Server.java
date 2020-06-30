@@ -1,3 +1,8 @@
+package matching;
+
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
@@ -31,7 +36,7 @@ public class Server {
         }
 
         Thread thread = new Thread(() -> {
-            JsonAction jsonAction = new JsonAction();
+            ActionCreator jsonAction = new ActionCreator();
            while(true){
                try {
                    int keyCount = selector.select();
@@ -59,12 +64,10 @@ public class Server {
 
                    while(connections.size() > 3){
                         List<Client> subList = connections.subList(0,4);
-                        String address = ((InetSocketAddress)subList.get(0).socketChannel.getRemoteAddress()).getHostName();
-                        String hostMessage = jsonAction.connectAddress(address, "host");
-                        String clientMessage = jsonAction.connectAddress(address, "client");
+                        String message = jsonAction.connectAddress();
 
                         for(int i=0 ;i< 4; i++){
-                            subList.get(i).sendData = (i==0)?hostMessage:clientMessage;
+                            subList.get(i).sendData = message;
                             SelectionKey key = subList.get(i).socketChannel.keyFor(selector);
                             key.interestOps(SelectionKey.OP_WRITE); // 작업 유형 변경
                             connections.remove(0);
@@ -143,11 +146,15 @@ public class Server {
                 Charset charset = Charset.forName("UTF-8");
                 String data = charset.decode(byteBuffer).toString();
 
-                // 모든 클라이언트에게 문자열을 전송하는 코드
-                for(Client client: connections){
-                    client.sendData = data;
-                    SelectionKey key = client.socketChannel.keyFor(selector);
-                    key.interestOps(SelectionKey.OP_WRITE); // 작업 유형 변경
+                // 데이터를 받아 처리한다.
+                JSONParser jsonParser = new JSONParser();
+                JSONObject result = (JSONObject)jsonParser.parse(data);
+                String type = (String)result.get("type");
+                JSONObject payload = (JSONObject) result.get("payload");
+                if(type.equals("CONNECT_BREAK")){
+                    System.out.println("연결 해제: "+ socketChannel.getRemoteAddress());
+                    connections.remove(this);
+                    socketChannel.close();
                 }
 
                 selector.wakeup();
