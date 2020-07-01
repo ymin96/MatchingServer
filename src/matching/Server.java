@@ -140,7 +140,7 @@ public class Server {
 
         void receive(SelectionKey selectionKey){
             try{
-                ByteBuffer byteBuffer = ByteBuffer.allocate(100);
+                ByteBuffer byteBuffer = ByteBuffer.allocate(1000);
 
                 // 상대방이 비정상 종료를 했을 경우 자동 IOException 발생
                 int byteCount = socketChannel.read(byteBuffer); // 데이터 받기
