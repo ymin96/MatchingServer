@@ -25,4 +25,15 @@ public class ActionCreator {
         result.put("payload", payload);
         return result.toJSONString();
     }
+
+    public String receiveFailAction(String uuid, JSONObject action, boolean win){
+        JSONObject result = new JSONObject();
+        result.put("type","RECEIVE_FAIL_ACTION");
+        JSONObject payload = new JSONObject();
+        payload.put("uuid", uuid);
+        payload.put("action", action);
+        payload.put("win", win);
+        result.put("payload", payload);
+        return result.toJSONString();
+    }
 }

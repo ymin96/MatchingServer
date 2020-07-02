@@ -17,11 +17,17 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class GameServer {
-    Selector selector;
-    ServerSocketChannel serverSocketChannel;
-    List<Client> connections = new Vector<Client>();
-    Map<String, List<Client>> userMap = new ConcurrentHashMap<>();
-    game.ActionCreator actionCreator = new game.ActionCreator();
+    private Selector selector;
+    private ServerSocketChannel serverSocketChannel;
+    private List<Client> connections = new Vector<Client>();
+    private Map<String, List<Client>> userMap = new ConcurrentHashMap<>();
+    private game.ActionCreator actionCreator = new game.ActionCreator();
+
+    // 액션 객체의 결과 상태를 구분하기 위한 변수
+    public static final int SUCCESS = 10;
+    public static final int MATCH_FAIL = 11;
+    public static final int TIME_OUT = 12;
+    public static final int SEARCH_FAIL = 13;
 
     public void startServer(){
         try{
@@ -137,7 +143,7 @@ public class GameServer {
                 Charset charset = Charset.forName("UTF-8");
                 String data = charset.decode(byteBuffer).toString();
 
-                System.out.println(data);
+                System.out.println("receive: " + data);
 
                 // 데이터를 받아 리듀서 함수에서 처리한다.
                 JSONParser jsonParser = new JSONParser();
@@ -155,6 +161,8 @@ public class GameServer {
 
         void send(SelectionKey selectionKey){
             try{
+                System.out.println("send: " + sendData);
+
                 Charset charset = Charset.forName("UTF-8");
                 ByteBuffer byteBuffer = charset.encode(sendData);
                 socketChannel.write(byteBuffer);
@@ -168,10 +176,11 @@ public class GameServer {
             }
         }
 
-        void reducer(JSONObject result){
+        void reducer(JSONObject result) {
             String type = (String)result.get("type");
             JSONObject payload = (JSONObject) result.get("payload");
             switch (type){
+                // 연결 요청 메시지
                 case "CONNECT_ROOM": {
                     String uuid = (String) payload.get("uuid");
                     // 전달받은 uuid로 생성된 방이 없다면 새로 만들고 있다면 Map 에서 가져온다.
@@ -192,18 +201,50 @@ public class GameServer {
                     }
                     break;
                 }
+                // 액션 객체 전달
                 case "SEND_ACTION": {
                     String uuid = (String) payload.get("uuid");
                     JSONObject action = (JSONObject) payload.get("action");
                     ArrayList<Client> clients = (ArrayList<Client>) userMap.get(uuid);
-                    for(Client client: clients){
-                        client.turn = !client.turn;
-                        String data = actionCreator.receiveAction(uuid, action, client.turn); // type:"RECEIVE_ACTION"
-                        client.sendData = data;
-                        SelectionKey key = client.socketChannel.keyFor(selector);
-                        key.interestOps(SelectionKey.OP_WRITE);
+                    int resultType = Math.toIntExact((Long)action.get("return_type"));
+                    // 결과 타입에 따라 게임을 이어갈지 끝낼지 결정해준다.
+                    if(resultType == SUCCESS){
+                        // 턴을 바꿔서 클라이언트에게 재전송
+                        for(Client client: clients){
+                            client.turn = !client.turn;
+                            String data = actionCreator.receiveAction(uuid, action, client.turn); // type:"RECEIVE_ACTION"
+                            client.sendData = data;
+                            SelectionKey key = client.socketChannel.keyFor(selector);
+                            key.interestOps(SelectionKey.OP_WRITE);
+                        }
+                    }
+                    else{
+                        // Winner 정보를 추가해서 클라이언트에게 재전송
+                        for(Client client: clients){
+                            boolean win = (!client.equals(this));
+                            String data = actionCreator.receiveFailAction(uuid, action, win); // type:"RECEIVE_FAIL_ACTION"
+                            client.sendData = data;
+                            SelectionKey key = client.socketChannel.keyFor(selector);
+                            key.interestOps(SelectionKey.OP_WRITE);
+                        }
                     }
                     selector.wakeup();
+                    break;
+                }
+                // 연결 해제 메시지
+                case "CONNECT_CLOSE": {
+                    String uuid = (String) payload.get("uuid");
+                    ArrayList<Client> clients = (ArrayList<Client>) userMap.get(uuid);
+                    Iterator<Client> iterator = clients.iterator();
+                    try {
+                        while (iterator.hasNext()) {
+                            Client client = iterator.next();
+                            connections.remove(client);
+                            client.socketChannel.close();
+                        }
+                    } catch (IOException e) {
+                    }
+                    userMap.remove(uuid);
                     break;
                 }
             }
