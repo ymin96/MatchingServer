@@ -117,7 +117,7 @@ public class Server {
             ServerSocketChannel serverSocketChannel = (ServerSocketChannel) selectionKey.channel();
             SocketChannel socketChannel = serverSocketChannel.accept();
 
-            System.out.println("연결 수락: "+socketChannel.getRemoteAddress());
+            System.out.println("매칭 서버: "+socketChannel.getRemoteAddress()+"연결 수락");
 
             Client client = new Client(socketChannel);
             connections.add(client);
@@ -160,7 +160,7 @@ public class Server {
                 JSONObject result = (JSONObject)jsonParser.parse(data);
                 String type = (String)result.get("type");
                 JSONObject payload = (JSONObject) result.get("payload");
-                if(type.equals("CONNECT_BREAK")){
+                if(type.equals("MATCHING_CONNECT_BREAK")){
                     System.out.println("연결 해제: "+ socketChannel.getRemoteAddress());
                     connections.remove(this);
                     socketChannel.close();
@@ -169,6 +169,7 @@ public class Server {
                 selector.wakeup();
             } catch (Exception e){
                 try{
+                    System.out.println("매칭 서버: "+ socketChannel.getRemoteAddress() + "연결 해제");
                     connections.remove(this);
                     socketChannel.close();
                 } catch (IOException e2){}

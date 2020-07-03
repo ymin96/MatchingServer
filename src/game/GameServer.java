@@ -104,7 +104,7 @@ public class GameServer {
             ServerSocketChannel serverSocketChannel = (ServerSocketChannel) selectionKey.channel();
             SocketChannel socketChannel = serverSocketChannel.accept();
 
-            System.out.println("연결 수락: "+socketChannel.getRemoteAddress());
+            System.out.println("게임 서버: "+socketChannel.getRemoteAddress()+"연결 수락");
 
             Client client = new Client(socketChannel);
             connections.add(client);
@@ -234,17 +234,12 @@ public class GameServer {
                 // 연결 해제 메시지
                 case "CONNECT_CLOSE": {
                     String uuid = (String) payload.get("uuid");
-                    ArrayList<Client> clients = (ArrayList<Client>) userMap.get(uuid);
-                    Iterator<Client> iterator = clients.iterator();
                     try {
-                        while (iterator.hasNext()) {
-                            Client client = iterator.next();
-                            connections.remove(client);
-                            client.socketChannel.close();
-                        }
-                    } catch (IOException e) {
-                    }
-                    userMap.remove(uuid);
+                        System.out.println("게임 서버: " + socketChannel.getRemoteAddress() + "연결 해제");
+                        userMap.remove(uuid);
+                        connections.remove(this);
+                        this.socketChannel.close();
+                    } catch (IOException e) { }
                     break;
                 }
             }
